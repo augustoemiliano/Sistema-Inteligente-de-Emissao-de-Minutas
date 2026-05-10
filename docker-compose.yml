@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: minutas_db
+      POSTGRES_USER: minutas
+      POSTGRES_PASSWORD: minutas
+    ports:
+      - "5437:5432"
+    volumes:
+      - minutas-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minutas -d minutas_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      ENVIRONMENT: development
+      SECRET_KEY: dev-secret-key-must-be-at-least-32-characters-long!!
+      DATABASE_URL: postgresql+psycopg://minutas:minutas@postgres:5432/minutas_db
+      DATABASE_URL_SYNC: postgresql+psycopg2://minutas:minutas@postgres:5432/minutas_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      # Lista separada por vírgula (não use JSON). Inclui a porta publicada do app (8010).
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:8010,http://127.0.0.1:8010
+      WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./uploads:/app/uploads:rw,z
+      - ./generated_documents:/app/generated_documents:rw,z
+      - ./logs:/app/logs:rw,z
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      ENVIRONMENT: development
+      SECRET_KEY: dev-secret-key-must-be-at-least-32-characters-long!!
+      DATABASE_URL: postgresql+psycopg://minutas:minutas@postgres:5432/minutas_db
+      DATABASE_URL_SYNC: postgresql+psycopg2://minutas:minutas@postgres:5432/minutas_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
+    entrypoint:
+      [
+        "celery",
+        "-A",
+        "app.core.celery_app:celery_app",
+        "worker",
+        "-l",
+        "info",
+      ]
+    volumes:
+      - ./uploads:/app/uploads:rw,z
+      - ./generated_documents:/app/generated_documents:rw,z
+      - ./logs:/app/logs:rw,z
+
+volumes:
+  minutas-pg-data:

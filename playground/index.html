@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playground — Minutas API</title>
+    <style>
+      :root {
+        --bg: #0f1419;
+        --surface: #1a2332;
+        --border: #2d3a4f;
+        --text: #e8ecf1;
+        --muted: #8b9cb3;
+        --accent: #5b9fd4;
+        --ok: #3ecf8e;
+        --warn: #e9c46a;
+        --err: #ef6b6b;
+        --font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+        --sans: "DM Sans", system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+      .wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.35rem;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 1.75rem;
+      }
+      .sub code {
+        font-family: var(--font);
+        font-size: 0.82rem;
+        background: var(--surface);
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+      }
+      .token-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.85rem 1rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        font-size: 0.85rem;
+      }
+      .token-bar span {
+        color: var(--muted);
+      }
+      .token-bar strong {
+        color: var(--ok);
+        font-family: var(--font);
+        font-weight: 500;
+      }
+      section {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.1rem 1.15rem;
+        margin-bottom: 1rem;
+        background: rgba(26, 35, 50, 0.55);
+      }
+      section h2 {
+        margin: 0 0 0.85rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--accent);
+      }
+      label {
+        display: block;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 0.35rem;
+      }
+      input {
+        width: 100%;
+        padding: 0.55rem 0.65rem;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 0.88rem;
+        margin-bottom: 0.65rem;
+      }
+      input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .row {
+        display: grid;
+        gap: 0.65rem;
+      }
+      @media (min-width: 560px) {
+        .row-2 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+      }
+      button {
+        cursor: pointer;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 0.85rem;
+        font-family: var(--sans);
+        font-size: 0.88rem;
+        font-weight: 500;
+        background: var(--accent);
+        color: #0a1628;
+      }
+      button:hover {
+        filter: brightness(1.08);
+      }
+      button.secondary {
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      button.danger {
+        background: transparent;
+        color: var(--err);
+        border: 1px solid var(--err);
+      }
+      .out {
+        margin-top: 1rem;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        font-family: var(--font);
+        font-size: 0.78rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 320px;
+        overflow: auto;
+      }
+      .meta {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.8rem;
+        font-family: var(--font);
+      }
+      .badge {
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+      .badge.ok {
+        background: rgba(62, 207, 142, 0.15);
+        color: var(--ok);
+      }
+      .badge.err {
+        background: rgba(239, 107, 107, 0.15);
+        color: var(--err);
+      }
+      .badge.pending {
+        background: rgba(233, 196, 106, 0.15);
+        color: var(--warn);
+      }
+      .hint {
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-top: 0.35rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Playground da API</h1>
+      <p class="sub">
+        Mesma origem que o backend — chama <code>/api/v1</code> sem CORS. Com Docker:
+        <code>http://localhost:8010/playground/</code>
+      </p>
+
+      <div class="token-bar">
+        <span>Sessão:</span>
+        <strong id="sessionLabel">sem tokens</strong>
+        <button type="button" class="secondary" id="btnClear">Limpar tokens</button>
+      </div>
+
+      <section>
+        <h2>Saúde</h2>
+        <div class="actions">
+          <button type="button" id="btnHealth">GET /health</button>
+          <button type="button" id="btnReady">GET /ready</button>
+        </div>
+        <div id="outHealth" class="out" hidden></div>
+      </section>
+
+      <section>
+        <h2>Cadastro</h2>
+        <div class="row row-2">
+          <div>
+            <label for="regEmail">E-mail</label>
+            <input id="regEmail" type="email" autocomplete="username" />
+          </div>
+          <div>
+            <label for="regName">Nome completo</label>
+            <input id="regName" type="text" minlength="2" />
+          </div>
+        </div>
+        <label for="regPass">Senha (mín. 8)</label>
+        <input id="regPass" type="password" autocomplete="new-password" />
+        <div class="actions">
+          <button type="button" id="btnRegister">POST /auth/register</button>
+          <button type="button" class="secondary" id="btnFillRandom">
+            Preencher usuário de teste
+          </button>
+        </div>
+        <p class="hint">O primeiro usuário do banco vira <strong>admin</strong>; os demais, viewer.</p>
+        <div id="outReg" class="out" hidden></div>
+      </section>
+
+      <section>
+        <h2>Login</h2>
+        <div class="row row-2">
+          <div>
+            <label for="loginEmail">E-mail</label>
+            <input id="loginEmail" type="email" autocomplete="username" />
+          </div>
+          <div>
+            <label for="loginPass">Senha</label>
+            <input id="loginPass" type="password" autocomplete="current-password" />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" id="btnLogin">POST /auth/login</button>
+        </div>
+        <div id="outLogin" class="out" hidden></div>
+      </section>
+
+      <section>
+        <h2>Token &amp; perfil</h2>
+        <div class="actions">
+          <button type="button" id="btnRefresh">POST /auth/refresh</button>
+          <button type="button" id="btnMe">GET /auth/me</button>
+          <button type="button" class="secondary" id="btnAdminPing">GET /auth/admin/ping</button>
+        </div>
+        <p class="hint"><code>/auth/admin/ping</code> exige papel admin (primeiro cadastro).</p>
+        <div id="outAuth" class="out" hidden></div>
+      </section>
+    </div>
+
+    <script>
+      const API = "/api/v1";
+      const SK_ACCESS = "pg_access_token";
+      const SK_REFRESH = "pg_refresh_token";
+
+      const $ = (id) => document.getElementById(id);
+
+      function loadTokens() {
+        return {
+          access: sessionStorage.getItem(SK_ACCESS),
+          refresh: sessionStorage.getItem(SK_REFRESH),
+        };
+      }
+
+      function saveTokens(access, refresh) {
+        if (access) sessionStorage.setItem(SK_ACCESS, access);
+        if (refresh) sessionStorage.setItem(SK_REFRESH, refresh);
+        updateSessionLabel();
+      }
+
+      function clearTokens() {
+        sessionStorage.removeItem(SK_ACCESS);
+        sessionStorage.removeItem(SK_REFRESH);
+        updateSessionLabel();
+      }
+
+      function mask(tok) {
+        if (!tok || tok.length < 16) return "—";
+        return tok.slice(0, 10) + "…" + tok.slice(-6);
+      }
+
+      function updateSessionLabel() {
+        const { access, refresh } = loadTokens();
+        const el = $("sessionLabel");
+        if (!access && !refresh) {
+          el.textContent = "sem tokens";
+          return;
+        }
+        el.textContent =
+          "access " +
+          mask(access) +
+          " · refresh " +
+          mask(refresh);
+      }
+
+      function renderOutput(containerId, status, ms, bodyText) {
+        const box = $(containerId);
+        box.hidden = false;
+        const loading = status === null || status === undefined;
+        const netFail = status === 0;
+        const ok = !loading && !netFail && status >= 200 && status < 300;
+        let badgeClass = "ok";
+        let badgeText = String(status);
+        if (loading) {
+          badgeClass = "pending";
+          badgeText = "…";
+        } else if (netFail) {
+          badgeClass = "err";
+          badgeText = "rede";
+        } else if (!ok) {
+          badgeClass = "err";
+        }
+        box.innerHTML =
+          '<div class="meta">' +
+          '<span class="badge ' +
+          badgeClass +
+          '">' +
+          badgeText +
+          "</span>" +
+          "<span>" +
+          (ms != null ? ms + " ms" : "") +
+          "</span>" +
+          "</div>" +
+          bodyText;
+      }
+
+      function trySaveTokensFromBody(pretty) {
+        try {
+          const j = JSON.parse(pretty);
+          if (j.access_token && j.refresh_token) {
+            saveTokens(j.access_token, j.refresh_token);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
+      async function req(method, path, { json, bearer } = {}) {
+        const headers = { Accept: "application/json" };
+        if (json !== undefined) {
+          headers["Content-Type"] = "application/json";
+        }
+        if (bearer) {
+          headers["Authorization"] = "Bearer " + bearer;
+        }
+        const t0 = performance.now();
+        let status = 0;
+        let text = "";
+        try {
+          const res = await fetch(API + path, {
+            method,
+            headers,
+            body: json !== undefined ? JSON.stringify(json) : undefined,
+          });
+          status = res.status;
+          text = await res.text();
+        } catch (e) {
+          text = JSON.stringify({ detail: String(e) }, null, 2);
+          status = 0;
+        }
+        const ms = Math.round(performance.now() - t0);
+        let pretty = text;
+        try {
+          pretty = JSON.stringify(JSON.parse(text), null, 2);
+        } catch {
+          /* keep raw */
+        }
+        return { status, ms, pretty };
+      }
+
+      $("btnClear").addEventListener("click", () => {
+        clearTokens();
+      });
+
+      $("btnFillRandom").addEventListener("click", () => {
+        const id = Math.random().toString(36).slice(2, 10);
+        $("regEmail").value = "teste+" + id + "@localhost.dev";
+        $("regName").value = "Usuário Teste " + id;
+        $("regPass").value = "senhaSegura8";
+      });
+
+      async function runHealth(which) {
+        const path = which === "ready" ? "/ready" : "/health";
+        const box = "outHealth";
+        renderOutput(box, null, null, "Carregando…");
+        const { status, ms, pretty } = await req("GET", path);
+        renderOutput(box, status, ms, pretty);
+      }
+
+      $("btnHealth").addEventListener("click", () => runHealth("health"));
+      $("btnReady").addEventListener("click", () => runHealth("ready"));
+
+      $("btnRegister").addEventListener("click", async () => {
+        const payload = {
+          email: $("regEmail").value.trim(),
+          password: $("regPass").value,
+          full_name: $("regName").value.trim(),
+        };
+        const { status, ms, pretty } = await req("POST", "/auth/register", { json: payload });
+        renderOutput("outReg", status, ms, pretty);
+        trySaveTokensFromBody(pretty);
+      });
+
+      $("btnLogin").addEventListener("click", async () => {
+        const payload = {
+          email: $("loginEmail").value.trim(),
+          password: $("loginPass").value,
+        };
+        const { status, ms, pretty } = await req("POST", "/auth/login", { json: payload });
+        renderOutput("outLogin", status, ms, pretty);
+        trySaveTokensFromBody(pretty);
+      });
+
+      $("btnRefresh").addEventListener("click", async () => {
+        const { refresh } = loadTokens();
+        if (!refresh) {
+          renderOutput("outAuth", 400, 0, JSON.stringify({ detail: "Sem refresh_token na sessão" }, null, 2));
+          return;
+        }
+        const { status, ms, pretty } = await req("POST", "/auth/refresh", {
+          json: { refresh_token: refresh },
+        });
+        renderOutput("outAuth", status, ms, pretty);
+        trySaveTokensFromBody(pretty);
+      });
+
+      $("btnMe").addEventListener("click", async () => {
+        const { access } = loadTokens();
+        if (!access) {
+          renderOutput("outAuth", 400, 0, JSON.stringify({ detail: "Sem access_token na sessão" }, null, 2));
+          return;
+        }
+        const { status, ms, pretty } = await req("GET", "/auth/me", { bearer: access });
+        renderOutput("outAuth", status, ms, pretty);
+      });
+
+      $("btnAdminPing").addEventListener("click", async () => {
+        const { access } = loadTokens();
+        if (!access) {
+          renderOutput("outAuth", 400, 0, JSON.stringify({ detail: "Sem access_token na sessão" }, null, 2));
+          return;
+        }
+        const { status, ms, pretty } = await req("GET", "/auth/admin/ping", { bearer: access });
+        renderOutput("outAuth", status, ms, pretty);
+      });
+
+      updateSessionLabel();
+    </script>
+  </body>
+</html>
