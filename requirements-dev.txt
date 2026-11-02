@@ -1,3 +1,9 @@
+# Testes
+pytest>=8.3.0,<9
+pytest-asyncio>=0.24.0,<0.25
+httpx>=0.28.0,<0.29
+
+# Qualidade
 ruff>=0.8.0,<0.9
 black>=24.0.0,<25
 mypy>=1.13.0,<2
