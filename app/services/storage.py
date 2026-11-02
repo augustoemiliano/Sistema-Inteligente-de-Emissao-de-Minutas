@@ -18,7 +18,9 @@ class UnsafePathError(AppError):
 
 
 def safe_join(base_dir: Path, relative: str) -> Path:
-    if not relative or os.path.isabs(relative) or "\x00" in relative:
+    # Barra invertida é rejeitada sempre: no Linux ela não é separador, então "..\\x"
+    # escaparia da checagem de path traversal e viraria um nome de arquivo ambíguo.
+    if not relative or os.path.isabs(relative) or "\x00" in relative or "\\" in relative:
         raise UnsafePathError()
     base = base_dir.resolve()
     target = (base / relative).resolve()
