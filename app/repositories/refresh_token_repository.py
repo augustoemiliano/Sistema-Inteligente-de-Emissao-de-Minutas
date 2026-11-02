@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -27,7 +27,7 @@ class RefreshTokenRepository:
         stmt = select(RefreshToken).where(
             RefreshToken.token_hash == token_hash,
             RefreshToken.revoked_at.is_(None),
-            RefreshToken.expires_at > func.now(),
+            RefreshToken.expires_at > datetime.now(UTC),
         )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
