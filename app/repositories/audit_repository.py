@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -41,3 +42,40 @@ class AuditRepository:
         stmt = select(func.count()).select_from(AuditLog).where(AuditLog.user_id == user_id)
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
+
+    async def search(
+        self,
+        *,
+        action: str | None = None,
+        user_id: UUID | None = None,
+        resource_type: str | None = None,
+        resource_id: UUID | None = None,
+        since: datetime | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[AuditLog], int]:
+        filters = []
+        if action:
+            # Prefixo: "minuta." traz todas as ações de minuta
+            filters.append(AuditLog.action.startswith(action))
+        if user_id:
+            filters.append(AuditLog.user_id == user_id)
+        if resource_type:
+            filters.append(AuditLog.resource_type == resource_type)
+        if resource_id:
+            filters.append(AuditLog.resource_id == resource_id)
+        if since:
+            filters.append(AuditLog.created_at >= since)
+
+        total = await self._session.scalar(
+            select(func.count()).select_from(AuditLog).where(*filters)
+        )
+        stmt = (
+            select(AuditLog)
+            .where(*filters)
+            .order_by(AuditLog.created_at.desc(), AuditLog.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return list(rows), int(total or 0)

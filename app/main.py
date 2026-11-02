@@ -6,12 +6,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, health
+from app.api.routes import ai, audit, auth, health, minutas, templates, uploads, users
 from app.core.config import get_settings
 from app.core.exceptions import AppError
 from app.core.logger import RequestContextMiddleware, configure_logging, get_logger
@@ -23,15 +24,15 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings = get_settings()
-    configure_logging(settings)
-    get_engine(settings)
-    get_session_factory(settings)
     for path in (
         settings.upload_dir,
         settings.generated_documents_dir,
         settings.log_dir,
     ):
         path.mkdir(parents=True, exist_ok=True)
+    configure_logging(settings)
+    get_engine(settings)
+    get_session_factory(settings)
     logger.info("Serviço iniciado (%s)", settings.environment)
     yield
     logger.info("Serviço encerrando")
@@ -42,7 +43,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         lifespan=lifespan,
         title=settings.project_name,
-        version="0.1.0",
+        version="0.2.0",
         docs_url="/docs" if not settings.is_production else None,
         redoc_url="/redoc" if not settings.is_production else None,
         openapi_url="/openapi.json" if not settings.is_production else None,
@@ -73,7 +74,11 @@ def create_app() -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def validation_handler(_, exc: RequestValidationError):
         # Mantém payload do FastAPI, mas padroniza chave `detail`
-        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+        # custom_encoder: erros de model_validator trazem a exceção em `ctx`
+        return JSONResponse(
+            status_code=422,
+            content={"detail": jsonable_encoder(exc.errors(), custom_encoder={Exception: str})},
+        )
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(_, exc: Exception):
@@ -84,7 +89,8 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(health.router, prefix=settings.api_v1_prefix)
-    app.include_router(auth.router, prefix=settings.api_v1_prefix)
+    for module in (auth, users, templates, minutas, uploads, ai, audit):
+        app.include_router(module.router, prefix=settings.api_v1_prefix)
 
     if not settings.is_production:
         playground_dir = Path(__file__).resolve().parent.parent / "playground"
