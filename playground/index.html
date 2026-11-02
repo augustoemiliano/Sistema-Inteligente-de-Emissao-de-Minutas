@@ -106,6 +106,17 @@
         font-size: 0.88rem;
         margin-bottom: 0.65rem;
       }
+      textarea {
+        width: 100%;
+        padding: 0.55rem 0.65rem;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 0.82rem;
+        margin-bottom: 0.65rem;
+      }
       input:focus {
         outline: none;
         border-color: var(--accent);
@@ -269,6 +280,35 @@
         <p class="hint"><code>/auth/admin/ping</code> exige papel admin (primeiro cadastro).</p>
         <div id="outAuth" class="out" hidden></div>
       </section>
+
+      <section>
+        <h2>Fluxo de minuta (template → minuta → PDF)</h2>
+        <p class="hint">
+          Faça login como <code>editor@minutas.dev</code> / <code>Editor@12345</code> (seed de demo).
+          Aprovação e auditoria exigem <code>admin@minutas.dev</code> / <code>Admin@12345</code>.
+        </p>
+        <div class="actions">
+          <button type="button" class="secondary" id="btnDemoEditor">Login demo editor</button>
+          <button type="button" class="secondary" id="btnDemoAdmin">Login demo admin</button>
+          <button type="button" id="btnTemplates">GET /templates</button>
+        </div>
+        <label for="tplId">template_id</label>
+        <input id="tplId" type="text" placeholder="preenchido ao listar templates" />
+        <label for="minutaVars">Variáveis (JSON)</label>
+        <textarea id="minutaVars" rows="7"></textarea>
+        <div class="actions">
+          <button type="button" id="btnCreateMinuta">POST /minutas</button>
+          <button type="button" id="btnPdf">POST /minutas/{id}/pdf</button>
+          <button type="button" id="btnDownload">Baixar PDF</button>
+          <button type="button" class="secondary" id="btnSubmit">Enviar p/ revisão</button>
+          <button type="button" class="secondary" id="btnApprove">Aprovar (admin)</button>
+          <button type="button" class="secondary" id="btnReview">Revisão por IA</button>
+          <button type="button" class="secondary" id="btnAudit">GET /audit (admin)</button>
+        </div>
+        <label for="minutaId">minuta_id</label>
+        <input id="minutaId" type="text" placeholder="preenchido ao criar a minuta" />
+        <div id="outFlow" class="out" hidden></div>
+      </section>
     </div>
 
     <script>
@@ -344,7 +384,17 @@
           (ms != null ? ms + " ms" : "") +
           "</span>" +
           "</div>" +
-          bodyText;
+          escapeHtml(bodyText);
+      }
+
+      // Respostas trazem HTML renderizado e dados de usuário: nunca injetar sem escapar (XSS)
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
       }
 
       function trySaveTokensFromBody(pretty) {
@@ -465,6 +515,86 @@
         }
         const { status, ms, pretty } = await req("GET", "/auth/admin/ping", { bearer: access });
         renderOutput("outAuth", status, ms, pretty);
+      });
+
+      // ---------- Fluxo de minuta ----------
+      const DEMO_VARS = {
+        contratante_nome: "Fulano da Silva",
+        contratante_documento: "12345678901",
+        contratada_nome: "ACME Tecnologia Ltda",
+        contratada_documento: "12345678000199",
+        objeto: "Desenvolvimento de software sob demanda.",
+        valor: 15000,
+        parcelas: 3,
+        data_inicio: "2026-12-01",
+        data_fim: "2027-05-31",
+        foro: "Recife/PE",
+      };
+      $("minutaVars").value = JSON.stringify(DEMO_VARS, null, 2);
+
+      async function flow(method, path, json) {
+        const { access } = loadTokens();
+        renderOutput("outFlow", null, null, "Carregando…");
+        const r = await req(method, path, { json, bearer: access });
+        renderOutput("outFlow", r.status, r.ms, r.pretty);
+        try {
+          return JSON.parse(r.pretty);
+        } catch {
+          return null;
+        }
+      }
+
+      async function demoLogin(email, password) {
+        const { status, ms, pretty } = await req("POST", "/auth/login", { json: { email, password } });
+        renderOutput("outFlow", status, ms, pretty);
+        trySaveTokensFromBody(pretty);
+      }
+
+      $("btnDemoEditor").addEventListener("click", () => demoLogin("editor@minutas.dev", "Editor@12345"));
+      $("btnDemoAdmin").addEventListener("click", () => demoLogin("admin@minutas.dev", "Admin@12345"));
+
+      $("btnTemplates").addEventListener("click", async () => {
+        const data = await flow("GET", "/templates");
+        if (data && data.items && data.items.length) $("tplId").value = data.items[0].id;
+      });
+
+      $("btnCreateMinuta").addEventListener("click", async () => {
+        let variables;
+        try {
+          variables = JSON.parse($("minutaVars").value);
+        } catch (e) {
+          renderOutput("outFlow", 400, 0, "JSON de variáveis inválido: " + e);
+          return;
+        }
+        const data = await flow("POST", "/minutas", {
+          title: "Minuta via playground",
+          template_id: $("tplId").value.trim(),
+          variables,
+        });
+        if (data && data.id) $("minutaId").value = data.id;
+      });
+
+      const minutaPath = (suffix) => "/minutas/" + $("minutaId").value.trim() + (suffix || "");
+
+      $("btnPdf").addEventListener("click", () => flow("POST", minutaPath("/pdf")));
+      $("btnSubmit").addEventListener("click", () => flow("POST", minutaPath("/status"), { status: "in_review" }));
+      $("btnApprove").addEventListener("click", () => flow("POST", minutaPath("/status"), { status: "approved" }));
+      $("btnReview").addEventListener("click", () => flow("POST", "/ai/review", { minuta_id: $("minutaId").value.trim() }));
+      $("btnAudit").addEventListener("click", () => flow("GET", "/audit?limit=20"));
+
+      $("btnDownload").addEventListener("click", async () => {
+        const detail = await flow("GET", minutaPath());
+        if (!detail || !detail.latest) return;
+        const { access } = loadTokens();
+        const res = await fetch(API + minutaPath("/versions/" + detail.current_version + "/pdf"), {
+          headers: { Authorization: "Bearer " + access },
+        });
+        if (!res.ok) {
+          renderOutput("outFlow", res.status, null, await res.text());
+          return;
+        }
+        const url = URL.createObjectURL(await res.blob());
+        window.open(url, "_blank");
       });
 
       updateSessionLabel();
