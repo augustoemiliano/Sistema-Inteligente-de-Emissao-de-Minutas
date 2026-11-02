@@ -1,6 +1,6 @@
 # Sistema Inteligente de Emissão de Minutas
 
-[![CI](https://github.com/augustoemiliano/Sistema-Inteligente-de-Emiss-o-de-Minutas/actions/workflows/ci.yml/badge.svg)](https://github.com/augustoemiliano/Sistema-Inteligente-de-Emiss-o-de-Minutas/actions/workflows/ci.yml)
+[![CI](https://github.com/augustoemiliano/Sistema-Inteligente-de-Emissao-de-Minutas/actions/workflows/ci.yml/badge.svg)](https://github.com/augustoemiliano/Sistema-Inteligente-de-Emissao-de-Minutas/actions/workflows/ci.yml)
 
 Backend corporativo em **FastAPI** para **geração e governança de minutas/contratos**. Usuários
 cadastram **templates Jinja2**, geram minutas preenchendo variáveis, cada alteração vira uma
