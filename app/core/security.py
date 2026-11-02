@@ -21,7 +21,9 @@ def normalize_password_plain(password: str) -> str:
 
 def hash_password(password: str) -> str:
     password = normalize_password_plain(password)
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+    return bcrypt.hashpw(
+        password.encode("utf-8"), bcrypt.gensalt(rounds=get_settings().bcrypt_rounds)
+    ).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -69,7 +71,7 @@ def create_access_token(
     }
     if extra_claims:
         payload.update(extra_claims)
-    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+    return str(jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm))
 
 
 def decode_access_token(token: str, settings: Settings | None = None) -> dict[str, Any]:
@@ -80,4 +82,4 @@ def decode_access_token(token: str, settings: Settings | None = None) -> dict[st
         raise ValueError("Token inválido") from exc
     if data.get("type") != "access":
         raise ValueError("Token inválido")
-    return data
+    return dict(data)

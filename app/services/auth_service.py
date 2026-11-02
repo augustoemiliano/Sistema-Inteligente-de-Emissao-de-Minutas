@@ -19,6 +19,8 @@ from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import RegisterRequest, TokenPairResponse, UserResponse
 
+_DUMMY_HASH = hash_password("dummy-password-for-timing-equalization")
+
 
 class AuthService:
     def __init__(self, session: AsyncSession) -> None:
@@ -83,7 +85,11 @@ class AuthService:
     ) -> TokenPairResponse:
         started = time.monotonic()
         user = await self._users.get_by_email(email)
-        if user is None or not verify_password(password, user.hashed_password):
+        # Sempre roda o bcrypt (hash fictício se o e-mail não existe): evita enumerar
+        # usuários pela diferença de tempo de resposta.
+        hashed = user.hashed_password if user is not None else _DUMMY_HASH
+        password_ok = verify_password(password, hashed)
+        if user is None or not password_ok:
             await self._audit.log_action(
                 action="auth.login_failed",
                 user_id=None,
@@ -165,6 +171,26 @@ class AuthService:
             refresh_token=new_raw,
             expires_in=settings.access_token_expire_minutes * 60,
         )
+
+    async def logout(
+        self,
+        user: User,
+        refresh_token: str,
+        *,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> None:
+        """Revoga o refresh informado (somente se pertencer ao usuário autenticado)."""
+        row = await self._refresh.get_valid_by_hash(hash_refresh_token(refresh_token))
+        if row is not None and row.user_id == user.id:
+            await self._refresh.revoke(row.id)
+        await self._audit.log_action(
+            action="auth.logout",
+            user_id=user.id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        await self._session.commit()
 
     async def me(self, user: User) -> UserResponse:
         return UserResponse(

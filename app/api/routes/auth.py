@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user, require_roles
@@ -78,6 +78,22 @@ async def refresh_token(
     except UnauthorizedError:
         await session.rollback()
         raise
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    request: Request,
+    payload: RefreshRequest,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> Response:
+    await _auth_service(session).logout(
+        current,
+        payload.refresh_token,
+        ip_address=client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me", response_model=UserResponse)
