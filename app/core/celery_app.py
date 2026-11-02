@@ -1,4 +1,4 @@
-"""Celery — filas para PDF, OCR e jobs pesados (ETAPA 5 expande as tasks)."""
+"""Celery — filas para geração de PDF e OCR de uploads."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ def make_celery() -> Celery:
         "minutas",
         broker=settings.celery_broker_url,
         backend=settings.celery_result_backend,
+        include=["app.tasks.documents"],
     )
     app.conf.update(
         task_serializer="json",
@@ -22,6 +23,11 @@ def make_celery() -> Celery:
         enable_utc=True,
         task_track_started=True,
         broker_connection_retry_on_startup=True,
+        # Eager: executa no próprio processo (dev sem Redis e testes automatizados)
+        task_always_eager=settings.celery_task_always_eager,
+        task_store_eager_result=False,
+        worker_prefetch_multiplier=1,
+        result_expires=3600,
     )
     return app
 
