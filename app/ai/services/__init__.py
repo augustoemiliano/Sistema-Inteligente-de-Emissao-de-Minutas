@@ -1,1 +1,1 @@
-"""Casos de uso de IA (sugestão de cláusulas, resumo, classificação) — ETAPA 4."""
+"""Casos de uso de IA (sugestão de cláusulas, revisão/resumo de documentos)."""
