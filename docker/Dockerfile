@@ -25,7 +25,8 @@ COPY playground playground
 COPY docker docker
 COPY pyproject.toml pyproject.toml
 
-RUN chmod +x docker/backend-entry.sh
+# Remove CR caso o repositório tenha sido clonado no Windows com autocrlf
+RUN sed -i 's/\r$//' docker/backend-entry.sh && chmod +x docker/backend-entry.sh
 
 EXPOSE 8000
 

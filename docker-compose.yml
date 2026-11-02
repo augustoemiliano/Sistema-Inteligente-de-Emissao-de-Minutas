@@ -1,3 +1,19 @@
+# Ambiente de desenvolvimento/demonstração. Os segredos abaixo são PÚBLICOS — não use em produção.
+x-app-env: &app-env
+  ENVIRONMENT: development
+  SECRET_KEY: dev-secret-key-must-be-at-least-32-characters-long!!
+  DATABASE_URL: postgresql+psycopg://minutas:minutas@postgres:5432/minutas_db
+  DATABASE_URL_SYNC: postgresql+psycopg2://minutas:minutas@postgres:5432/minutas_db
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
+  PDF_ENGINE: auto
+  # Sem chave → provider "fake" (offline). Exporte OPENAI_API_KEY no shell para usar a OpenAI.
+  AI_PROVIDER: auto
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -21,6 +37,11 @@ services:
     restart: unless-stopped
     ports:
       - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   app:
     build:
@@ -31,18 +52,12 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     environment:
-      ENVIRONMENT: development
-      SECRET_KEY: dev-secret-key-must-be-at-least-32-characters-long!!
-      DATABASE_URL: postgresql+psycopg://minutas:minutas@postgres:5432/minutas_db
-      DATABASE_URL_SYNC: postgresql+psycopg2://minutas:minutas@postgres:5432/minutas_db
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      <<: *app-env
       # Lista separada por vírgula (não use JSON). Inclui a porta publicada do app (8010).
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:8010,http://127.0.0.1:8010
-      WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
+      SEED_DEMO_DATA: "true"
     ports:
       - "8010:8000"
     volumes:
@@ -59,25 +74,12 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      app:
         condition: service_started
     environment:
-      ENVIRONMENT: development
-      SECRET_KEY: dev-secret-key-must-be-at-least-32-characters-long!!
-      DATABASE_URL: postgresql+psycopg://minutas:minutas@postgres:5432/minutas_db
-      DATABASE_URL_SYNC: postgresql+psycopg2://minutas:minutas@postgres:5432/minutas_db
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
-      WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
-    entrypoint:
-      [
-        "celery",
-        "-A",
-        "app.core.celery_app:celery_app",
-        "worker",
-        "-l",
-        "info",
-      ]
+      <<: *app-env
+    entrypoint: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-l", "info"]
     volumes:
       - ./uploads:/app/uploads:rw,z
       - ./generated_documents:/app/generated_documents:rw,z
