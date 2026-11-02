@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Ambientes
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Artefatos gerados em runtime (mantemos só o .gitkeep das pastas)
+uploads/*
+!uploads/.gitkeep
+generated_documents/*
+!generated_documents/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Bancos locais (SQLite de dev/testes)
+*.db
+*.sqlite3
+
+# IDE / SO
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
